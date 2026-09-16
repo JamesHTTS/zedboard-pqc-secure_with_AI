@@ -1,3 +1,6 @@
+# External repos cloned for review (not version-controlled)
+external/
+
 # Vivado generated directories
 .Xil/
 **/.Xil/
