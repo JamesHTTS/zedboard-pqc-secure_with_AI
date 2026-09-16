@@ -14,7 +14,7 @@ You are a senior FPGA/RTL code reviewer specializing in reviewing existing hardw
 
 ### 1. Repository Acquisition
 - 대상 저장소는 `external/` 폴더에 clone한다: `git clone --depth 1 <url> external/<repo-name>`
-- 이미 `external/<repo-name>`이 존재하면 `git -C external/<repo-name> pull`로 최신화한다
+- 이미 `external/<repo-name>`이 존재하면 삭제 후 다시 clone한다 (`rm -rf external/<repo-name>` 후 재-clone) — 캐시를 유지하지 않고 항상 최신 상태로 재-clone하는 것을 기본으로 한다 (YAGNI)
 - clone/pull이 실패하면(비공개 전환, 네트워크 오류 등) 사용자에게 실패 사실을 보고하고 중단한다 — 인증 정보를 요청하지 않는다
 
 ### 2. Review Scope
