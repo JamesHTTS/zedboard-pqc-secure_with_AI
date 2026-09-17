@@ -114,6 +114,11 @@ module aead_session_manager_bram #(
     logic [511:0] engine_data_out;
     logic [127:0] engine_tag_out;
 
+    /* Tautology when NUM_SESSIONS is a power of two: an SLOT_WIDTH-bit slot
+       is always < NUM_SESSIONS, so this synthesizes to a constant. The real
+       guard against an out-of-range slot value lives in the AXI-Lite
+       frontends, which now refuse to write slot_reg/decap_slot_o above
+       SLOT_WIDTH bits instead of truncating. */
     function automatic logic slot_in_range(input logic [SLOT_WIDTH-1:0] slot);
         slot_in_range = (slot < NUM_SESSIONS);
     endfunction
@@ -387,7 +392,11 @@ module aead_session_manager_bram #(
                         rsp_auth_ok_o <= engine_auth_ok;
                         rsp_error_o   <= !engine_auth_ok;
                         rsp_data_o    <= engine_auth_ok ? engine_data_out : 512'd0;
-                        rsp_tag_o     <= engine_tag_out;
+                        /* The tag is an encrypt-direction artifact; never
+                           surface it on decrypt, matched or not, so a
+                           rejected ciphertext cannot be resubmitted with
+                           its own leaked tag to force acceptance. */
+                        rsp_tag_o     <= (engine_auth_ok && !active_decrypt_q) ? engine_tag_out : 128'd0;
 
                         if (engine_auth_ok) begin
                             if (active_decrypt_q) begin

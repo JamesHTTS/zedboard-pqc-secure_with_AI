@@ -238,8 +238,11 @@ module aead_traffic_indexed_axi_lite_frontend #(
                             error_q  <= 1'b0;
                         end
                     end
-                    REG_SLOT: slot_reg <= merge_wstrb(
-                        {{(32-SLOT_WIDTH){1'b0}}, slot_reg}, wdata_q, wstrb_q);
+                    /* slot_reg is SLOT_WIDTH wide; a value above NUM_SESSIONS-1
+                       previously truncated silently and aliased onto slot 0. */
+                    REG_SLOT: if (!(|wdata_q[31:SLOT_WIDTH]))
+                        slot_reg <= merge_wstrb(
+                            {{(32-SLOT_WIDTH){1'b0}}, slot_reg}, wdata_q, wstrb_q);
                     REG_LENGTH: length_reg <= merge_wstrb(
                         {24'd0, length_reg}, wdata_q, wstrb_q);
                     REG_COUNTER_LO: counter_reg[31:0] <= merge_wstrb(

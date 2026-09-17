@@ -1182,34 +1182,38 @@ RTL 코드 변경이 필요한 항목만 추렸습니다. 각 항목은 `fpga-rt
 
 ### G-1. [High] 시뮬레이션/합성 사본 통일 — `mlkem_poly_tomsg_controller`
 
+- **상태:** ✅ 적용됨 (2026-09-17, `fpga-rtl-engineer` 역할) — A/B/C 3개 사본을 D(시뮬레이션 사본)의 비교기 구현으로 통일. D는 이미 정본과 동일해 수정 없음. E(`sources_1/imports/.../zedboard-64session-archive`, `AutoDisabled=1`)는 `mlkem_poly_tomsg_controller` 모듈 자체가 없는 죽은 아카이브라 동기화 대상에서 제외 — 별도 확인 필요 시 §F-1/F-2 재검토 권장.
 - **대상:** `outputs/rtl_aead/rtl/mlkem_poly_addsub_controller.sv:93-124` (및 4개 사본 전체)
 - **변경:** `compress_1`을 32비트 상수 곱셈(`p=poly_rdata_i*32'd1290168+32'h40000000; message_o[index]<=p[31];`)에서 비교기 2개(`message_bit=(poly_rdata_i>=16'd833)&&(poly_rdata_i<=16'd2496);`)로 교체. 시뮬레이션 사본 D의 구현을 정본으로 채택.
-- **검증:** G-2의 신규 TB로 `x ∈ [0,3328]` 전수 비교. 이후 `tb_mlkem512_decaps_shared_engine` / `tb_mlkem_secure_channel_complete_axi_top` 회귀.
+- **검증:** **미실행 — 검증팀 인계.** 이 환경에 Vivado/XSim이 없어 재합성·시뮬레이션을 수행하지 못했다. G-2의 신규 TB로 `x ∈ [0,3328]` 전수 비교 후 `tb_mlkem512_decaps_shared_engine` / `tb_mlkem_secure_channel_complete_axi_top` 회귀가 필요하다.
 - **리스크:** 조합 깊이 **감소** 방향. 32비트 곱셈 1개 제거로 DSP 1개 또는 약 40~60 LUT 절감 예상. **재합성으로 WNS 확인 필요.**
 
 ### G-2. [High] `mlkem_poly_tomsg_controller` 전용 TB 신설
 
+- **상태:** ⬜ 미착수 — RTL 엔지니어 범위 밖. `fpga-verification-engineer`에 인계.
 - **대상:** `outputs/rtl_aead/tb/tb_mlkem_poly_tomsg_controller.sv` (신규)
 - **변경:** 256계수를 0..3328 순회하며 소프트웨어 `compress_1` 참조값과 비교. 경계값 `0, 832, 833, 1664, 2496, 2497, 3328` 필수 포함. `$fatal`로 판정.
 - **리스크:** 없음(TB 추가).
 
 ### G-3. [High] 슬롯 범위 검사를 하드웨어에 추가
 
+- **상태:** ✅ 적용됨 (2026-09-17, `fpga-rtl-engineer` 역할) — 5개 사본 전체 반영. `aead_traffic_indexed_axi_lite_frontend.sv`는 RESP_SLVERR 인프라가 없어 범위 초과 시 `slot_reg` 갱신을 스킵하는 방식으로, `mlkem_decaps_axi_lite_frontend.sv`는 기존 `RESP_SLVERR` 관례를 그대로 따라 구현. `aead_session_manager_bram.sv`의 `slot_in_range()`는 현재도 항진명제이므로 제거하지 않고 그 사실과 실제 방어 위치를 주석으로 명시.
 - **대상:**
   - `outputs/rtl_aead/rtl/aead_traffic_indexed_axi_lite_frontend.sv:241-242`
   - `outputs/rtl_aead/rtl/mlkem_decaps_axi_lite_frontend.sv:78`
   - `outputs/rtl_aead/rtl/aead_session_manager_bram.sv:117-119`
 - **변경:** 슬롯 레지스터 쓰기 시 `|wdata_q[31:SLOT_WIDTH]`를 검사해 범위 초과면 레지스터를 갱신하지 않고 `RESP_SLVERR` 반환(또는 sticky 오류 비트). `slot_in_range()`가 현 파라미터에서 항진명제임을 주석으로 명시하거나 슬롯 폭을 넓혀 실효화.
-- **검증:** G-8의 프론트엔드 단위 TB에 슬롯 64/127 케이스 추가. **슬롯 0의 키가 보존되는지**를 반드시 확인(현재는 덮어써짐).
+- **검증:** **미실행 — 검증팀 인계.** G-8의 프론트엔드 단위 TB에 슬롯 64/127 케이스 추가와 **슬롯 0의 키가 보존되는지** 확인이 필요하다(수정 전에는 덮어써졌음).
 - **리스크:** 26비트 OR 리덕션(약 6 LUT). `s_axi_wdata → slot_reg` 경로는 크리티컬 아님. 낮음.
 
 ### G-4. [High] 인증 실패 시 태그 출력 차단
 
+- **상태:** ✅ 적용됨 (2026-09-17, `fpga-rtl-engineer` 역할) — 5개 사본 전체 반영. 엔진 레벨(`aead_fixed64_engine.sv`)에서 `tag_matches` 실패 시 `tag_o`를 아예 쓰지 않고 명시적으로 0 클리어, 세션 매니저 레벨(`aead_session_manager_bram.sv`)에서도 복호 방향이면 인증 결과와 무관하게 `rsp_tag_o`를 0으로 게이팅하는 이중 방어로 구현.
 - **대상:**
   - `outputs/rtl_aead/rtl/aead_fixed64_engine.sv:150`
   - `outputs/rtl_aead/rtl/aead_session_manager_bram.sv:390`
 - **변경:** `tag_o <= poly_tag;` → 복호 방향에서는 기록하지 않음. `rsp_tag_o <= engine_tag_out;` → `rsp_tag_o <= (engine_auth_ok && !active_decrypt_q) ? engine_tag_out : 128'd0;`
-- **검증:** 통합 TB에 "태그 변조 복호 후 `REG_OUTPUT_TAG`가 0인지" 확인 케이스 추가. 정상 암호화 경로의 태그는 그대로 나와야 함(`tb_mlkem_secure_channel_complete_axi_top.sv:427`의 `get_tag` 검사가 회귀 가드 역할).
+- **검증:** **미실행 — 검증팀 인계.** 통합 TB에 "태그 변조 복호 후 `REG_OUTPUT_TAG`가 0인지" 확인 케이스 추가가 필요하다. 정상 암호화 경로의 태그는 그대로 나와야 함(`tb_mlkem_secure_channel_complete_axi_top.sv:427`의 `get_tag` 검사가 회귀 가드 역할).
 - **리스크:** write-enable 게이팅으로 구현하면 0 LUT. 낮음.
 
 ### G-5. [Medium] 설치 후 키 재료 소거

@@ -147,13 +147,18 @@ module aead_fixed64_engine (
 
                 S_WAIT_DECRYPT_TAG: begin
                     if (poly_done) begin
-                        tag_o <= poly_tag;
+                        /* Only latch the computed tag on a match. Writing it
+                           unconditionally would let a rejected ciphertext be
+                           resubmitted with its own leaked tag to force
+                           acceptance (forgery oracle). */
                         if (tag_matches) begin
+                            tag_o          <= poly_tag;
                             chacha_counter <= 32'd1;
                             chacha_start   <= 1'b1;
                             state          <= S_WAIT_DECRYPT_STREAM;
                         end else begin
                             data_o    <= '0;
+                            tag_o     <= '0;
                             auth_ok_o <= 1'b0;
                             busy_o    <= 1'b0;
                             done_o    <= 1'b1;
